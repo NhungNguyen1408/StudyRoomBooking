@@ -2,18 +2,53 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 export async function requestNotificationPermission() {
-  // Web không dùng expo-notifications theo cách này
   if (Platform.OS === 'web') {
     return false;
   }
 
   try {
-    const { status } =
+    const current =
+      await Notifications.getPermissionsAsync();
+
+    console.log('PERMISSION HIỆN TẠI:', current);
+
+    const iosStatus = current.ios?.status;
+
+    if (
+      current.status === 'granted' ||
+      iosStatus ===
+        Notifications.IosAuthorizationStatus.AUTHORIZED ||
+      iosStatus ===
+        Notifications.IosAuthorizationStatus.PROVISIONAL
+    ) {
+      console.log('ĐÃ CÓ QUYỀN THÔNG BÁO');
+      return true;
+    }
+
+    const requested =
       await Notifications.requestPermissionsAsync();
 
-    return status === 'granted';
+    console.log(
+      'PERMISSION SAU KHI HỎI:',
+      requested
+    );
+
+    const requestedIosStatus =
+      requested.ios?.status;
+
+    return (
+      requested.status === 'granted' ||
+      requestedIosStatus ===
+        Notifications.IosAuthorizationStatus.AUTHORIZED ||
+      requestedIosStatus ===
+        Notifications.IosAuthorizationStatus.PROVISIONAL
+    );
   } catch (error) {
-    console.log('Lỗi xin quyền notification:', error);
+    console.log(
+      'LỖI XIN QUYỀN:',
+      error
+    );
+
     return false;
   }
 }
@@ -21,34 +56,51 @@ export async function requestNotificationPermission() {
 export async function scheduleBookingNotification(
   roomName: string
 ) {
-  // Nếu đang chạy trên trình duyệt thì bỏ qua notification
   if (Platform.OS === 'web') {
-    console.log(
-      'Web: bỏ qua local notification.'
-    );
-
+    console.log('WEB - KHÔNG GỬI NOTIFICATION');
     return;
   }
 
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Nhắc lịch đặt phòng 📚',
-        body: `Bạn sắp có lịch tại ${roomName}`,
-      },
+    const allowed =
+      await requestNotificationPermission();
 
-      trigger: {
-        type:
-          Notifications
-            .SchedulableTriggerInputTypes
-            .TIME_INTERVAL,
+    console.log(
+      'CÓ ĐƯỢC PHÉP THÔNG BÁO:',
+      allowed
+    );
 
-        seconds: 5,
-      },
-    });
+    if (!allowed) {
+      console.log(
+        'KHÔNG CÓ QUYỀN THÔNG BÁO'
+      );
+      return;
+    }
+
+    const id =
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Nhắc lịch đặt phòng 📚',
+          body: `Bạn sắp có lịch tại ${roomName}`,
+          sound: 'default',
+        },
+
+        trigger: {
+          type:
+            Notifications
+              .SchedulableTriggerInputTypes
+              .TIME_INTERVAL,
+          seconds: 5,
+        },
+      });
+
+    console.log(
+      'ĐÃ TẠO NOTIFICATION ID:',
+      id
+    );
   } catch (error) {
     console.log(
-      'Không thể tạo notification:',
+      'LỖI TẠO NOTIFICATION:',
       error
     );
   }
